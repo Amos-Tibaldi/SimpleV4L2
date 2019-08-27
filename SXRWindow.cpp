@@ -111,7 +111,7 @@ void SXRWindow::redraw( Display *dpy, Window w )
 
     int localpixmappixelwidth = max(windowwidth, ImageWidth);
     int localpixmappixelheight = max(windowheight, ImageHeight);
-    unsigned long pixmap = XCreatePixmap(display, win, localpixmappixelwidth, localpixmappixelheight, 32);
+    unsigned long pixmap = XCreatePixmap(display, w, localpixmappixelwidth, localpixmappixelheight, 32);
     GC gc = XCreateGC(display, pixmap, 0, NULL);
     XPutImage(display, pixmap, gc, &image, 0, 0, 0, 0, ImageWidth, ImageHeight);
     XFreeGC(display, gc);
