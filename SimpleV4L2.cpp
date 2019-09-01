@@ -55,7 +55,7 @@ using namespace SimpleV4L2Namespace;
 
 int  ng_debug          = 0;
 
-const int CSimpleV4L2::m_iNBuffers = 3;
+const int CSimpleV4L2::m_iNBuffers = 2; // 3;
 
 #define VIDEO_FMT_COUNT	    19
 

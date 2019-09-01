@@ -33,6 +33,7 @@
 //-----------------------------------------------------------------------
 
 #include <iostream>
+#include <thread>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -50,6 +51,7 @@
 #include <fcntl.h>
 #include <libv4l2.h>
 #include <libv4lconvert.h>
+#include <sys/time.h>
 
 #include <linux/videodev2.h>
 
@@ -62,19 +64,67 @@ using namespace std;
 
 #define XPIX 1920
 #define YPIX 1080
+#define ALSO_GRAY_WINDOW
+struct timeval tv;
+struct timezone tz;
+unsigned int lastsec = -1;
+unsigned int last_frame_counter = 0;
+unsigned int frame_counter = 0;
+
+unsigned char * RgbBuf;
+#ifdef ALSO_GRAY_WINDOW
+unsigned char * GrayBuf;
+#endif
+
+void print_time_statistics()
+{
+     lastsec = tv.tv_sec;
+     cout << " sec=" << lastsec%60 << " ";
+     int a = abs((int)frame_counter - (int)last_frame_counter);
+     if(a>0) cout << "Hz=" << a;
+     last_frame_counter = frame_counter; 
+     fflush(stdout);
+}
+
+#ifdef ALSO_GRAY_WINDOW
+void thread_routine_for_gray_buffer()
+{
+    unsigned char * srcoff = RgbBuf;
+    unsigned char * dstoff = GrayBuf;
+    for(int j=0; j<YPIX; j++)
+    {
+      for(int i=0; i<XPIX; i++)
+      {
+	unsigned int mean = *srcoff++;
+        mean += *srcoff++;
+        mean += *srcoff++;
+        mean /=3;
+        mean = (mean<0?0:mean);
+        mean = (mean>255?255:mean);
+        unsigned char ucmean = mean;
+        *dstoff++ = ucmean;
+        *dstoff++ = ucmean;
+        *dstoff++ = ucmean;
+      }
+    }
+}
+#endif
 
 int main(int argc, char **argv)
 {
-    unsigned int frame_counter = 0;
-    unsigned char * RgbBuf;
-    unsigned char * GrayBuf;
-
+    cout << "SimpleV4L2 - tibaldi.amos@gmail.com - https://github.com/Amos-Tibaldi/SimpleV4L2" << endl;
+    cout << "Try to comment out the line #define ALSO_GRAY_WINDOW" << endl;
     RgbBuf = (unsigned char*)memalign(16, XPIX*YPIX*3);
+#ifdef ALSO_GRAY_WINDOW
     GrayBuf = (unsigned char*)memalign(16, XPIX*YPIX*3);
+#endif
 
     SXRWindow::Init();
+
     SXRWindow w(XPIX, YPIX, "vid");
+#ifdef ALSO_GRAY_WINDOW
     SXRWindow wg(XPIX, YPIX, "gray");
+#endif
 
     CSimpleV4L2 v(XPIX, YPIX, 0);
 
@@ -91,34 +141,32 @@ int main(int argc, char **argv)
     {
         if(v.NextFrame(RgbBuf))
         {
-            frame_counter++;
-            cout << ((frame_counter%10==0)?"x":".");
-            fflush(stdout);
-            w.UpdateWindowOnScreen(RgbBuf);
+		gettimeofday(&tv, &tz);
+		if(lastsec==-1)
+		{
+		   lastsec = tv.tv_sec;
+		}
+		else
+		{
+		  if(tv.tv_sec != lastsec)
+		  {
+		     print_time_statistics();
+		  }
+		}
+		frame_counter++;
+		cout << ((frame_counter%10==0)?"x":".");
+		fflush(stdout);
+		
+#ifdef ALSO_GRAY_WINDOW
+		thread threadObj(thread_routine_for_gray_buffer);
+		threadObj.join();
 
-	    unsigned char * srcoff = RgbBuf;
-            unsigned char * dstoff = GrayBuf;
-            for(int j=0; j<YPIX; j++)
-            {
-              for(int i=0; i<XPIX; i++)
-              {
-		unsigned int mean = *srcoff++;
-                mean += *srcoff++;
-                mean += *srcoff++;
-                mean /=3;
-                mean = (mean<0?0:mean);
-                mean = (mean>255?255:mean);
-                unsigned char ucmean = mean;
-                *dstoff++ = ucmean;
-                *dstoff++ = ucmean;
-                *dstoff++ = ucmean;
-              }
-            }
+		wg.UpdateWindowOnScreen(GrayBuf);
+#endif
+		w.UpdateWindowOnScreen(RgbBuf);
+       }
 
-           wg.UpdateWindowOnScreen(GrayBuf);
-        }
-
-        SXRWindow::ShortManagementRoutine();
+       SXRWindow::ShortManagementRoutine();
     }
 
     v.StopStreaming();
@@ -126,7 +174,9 @@ int main(int argc, char **argv)
     v.Reset();
 
     free(RgbBuf);
+#ifdef ALSO_GRAY_WINDOW
     free(GrayBuf);
+#endif
 
     return 0;
 }
