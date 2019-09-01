@@ -111,24 +111,24 @@ void SXRWindow::redraw( Display *dpy, Window w )
 
     int localpixmappixelwidth = max(windowwidth, ImageWidth);
     int localpixmappixelheight = max(windowheight, ImageHeight);
-    unsigned long pixmap = XCreatePixmap(display, w, localpixmappixelwidth, localpixmappixelheight, 32);
-    GC gc = XCreateGC(display, pixmap, 0, NULL);
-    XPutImage(display, pixmap, gc, &image, 0, 0, 0, 0, ImageWidth, ImageHeight);
-    XFreeGC(display, gc);
+    unsigned long pixmap = XCreatePixmap(dpy, w, localpixmappixelwidth, localpixmappixelheight, 32);
+    GC gc = XCreateGC(dpy, pixmap, 0, NULL);
+    XPutImage(dpy, pixmap, gc, &image, 0, 0, 0, 0, ImageWidth, ImageHeight);
+    XFreeGC(dpy, gc);
 
-    unsigned long picture = XRenderCreatePicture(display, pixmap, GetRenderRGBA32Format(display), 0, NULL);
+    unsigned long picture = XRenderCreatePicture(dpy, pixmap, GetRenderRGBA32Format(dpy), 0, NULL);
 
     double xscale = (double)((double)ImageWidth/(double)windowwidth);
     double yscale = (double)((double)ImageHeight/(double)windowheight);
     theXTransform.matrix[0][0] = XDoubleToFixed(xscale);
     theXTransform.matrix[1][1] = XDoubleToFixed(yscale);
 
-    XRenderSetPictureTransform(display, picture, &theXTransform);
+    XRenderSetPictureTransform(dpy, picture, &theXTransform);
 
-    XRenderComposite(display, PictOpSrc, picture, 0, thePicture, 0, 0, 0, 0, 0, 0, windowwidth, windowheight);
+    XRenderComposite(dpy, PictOpSrc, picture, 0, thePicture, 0, 0, 0, 0, 0, 0, windowwidth, windowheight);
 
-    XRenderFreePicture(display, picture);
-    XFreePixmap(display, pixmap);
+    XRenderFreePicture(dpy, picture);
+    XFreePixmap(dpy, pixmap);
 }
 
 void SXRWindow::UpdateWindowOnScreen(unsigned char * rgbbuffer)
@@ -140,11 +140,10 @@ void SXRWindow::UpdateWindowOnScreen(unsigned char * rgbbuffer)
     //unsigned char * psrc = rgbbuffer;
     //while(bcopied < ImageBufferSize)
     //{
-    //    *pdest = *psrc;
-    //    *(pdest+1) = *(psrc+1);
-    //    *(pdest+2) = *(psrc+2);
-    //    pdest+=4;
-    //    psrc+=3;
+    //    *pdest++ = *psrc++;
+    //    *pdest++ = *psrc++;
+    //    *pdest++ = *psrc++;
+    //    pdest++;
     //    bcopied +=4;
     //}
 

@@ -58,17 +58,25 @@
 
 using namespace SimpleV4L2Namespace;
 using namespace XRTestNamespace::Windowing;
+using namespace std;
+
+#define XPIX 1920
+#define YPIX 1080
 
 int main(int argc, char **argv)
 {
+    unsigned int frame_counter = 0;
     unsigned char * RgbBuf;
+    unsigned char * GrayBuf;
 
-    RgbBuf = (unsigned char*)memalign(16, 640*480*3);
+    RgbBuf = (unsigned char*)memalign(16, XPIX*YPIX*3);
+    GrayBuf = (unsigned char*)memalign(16, XPIX*YPIX*3);
 
     SXRWindow::Init();
-    SXRWindow w(640, 480, "hello");
+    SXRWindow w(XPIX, YPIX, "vid");
+    SXRWindow wg(XPIX, YPIX, "gray");
 
-    CSimpleV4L2 v(640, 480, 0);
+    CSimpleV4L2 v(XPIX, YPIX, 0);
 
     bool bRet = v.Init();
 
@@ -83,7 +91,31 @@ int main(int argc, char **argv)
     {
         if(v.NextFrame(RgbBuf))
         {
+            frame_counter++;
+            cout << ((frame_counter%10==0)?"x":".");
+            fflush(stdout);
             w.UpdateWindowOnScreen(RgbBuf);
+
+	    unsigned char * srcoff = RgbBuf;
+            unsigned char * dstoff = GrayBuf;
+            for(int j=0; j<YPIX; j++)
+            {
+              for(int i=0; i<XPIX; i++)
+              {
+		unsigned int mean = *srcoff++;
+                mean += *srcoff++;
+                mean += *srcoff++;
+                mean /=3;
+                mean = (mean<0?0:mean);
+                mean = (mean>255?255:mean);
+                unsigned char ucmean = mean;
+                *dstoff++ = ucmean;
+                *dstoff++ = ucmean;
+                *dstoff++ = ucmean;
+              }
+            }
+
+           wg.UpdateWindowOnScreen(GrayBuf);
         }
 
         SXRWindow::ShortManagementRoutine();
@@ -94,6 +126,7 @@ int main(int argc, char **argv)
     v.Reset();
 
     free(RgbBuf);
+    free(GrayBuf);
 
     return 0;
 }
