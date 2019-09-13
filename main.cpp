@@ -34,6 +34,7 @@
 
 #include <iostream>
 #include <thread>
+#include <vector>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -57,24 +58,29 @@
 
 #include "SimpleV4L2.h"
 #include "SXRWindow.h"
+#include "CV.h"
 
 using namespace SimpleV4L2Namespace;
 using namespace XRTestNamespace::Windowing;
 using namespace std;
+using namespace CVEasy;
 
 #define XPIX 1920
 #define YPIX 1080
-#define ALSO_GRAY_WINDOW
+
 struct timeval tv;
 struct timezone tz;
 unsigned int lastsec = -1;
 unsigned int last_frame_counter = 0;
 unsigned int frame_counter = 0;
 
-unsigned char * RgbBuf;
-#ifdef ALSO_GRAY_WINDOW
-unsigned char * GrayBuf;
-#endif
+FrameUC * theCVFrame = 0;
+FrameF * fHarris = 0;
+FrameUC * fGray = 0;
+FrameUC * fGray2 = 0;
+#define MAX_HARRIS_CORNERS (10000)
+vector<int > vCornerX(MAX_HARRIS_CORNERS);
+vector<int > vCornerY(MAX_HARRIS_CORNERS);
 
 void print_time_statistics()
 {
@@ -86,45 +92,58 @@ void print_time_statistics()
      fflush(stdout);
 }
 
-#ifdef ALSO_GRAY_WINDOW
 void thread_routine_for_gray_buffer()
 {
-    unsigned char * srcoff = RgbBuf;
-    unsigned char * dstoff = GrayBuf;
-    for(int j=0; j<YPIX; j++)
-    {
-      for(int i=0; i<XPIX; i++)
-      {
-	unsigned int mean = *srcoff++;
-        mean += *srcoff++;
-        mean += *srcoff++;
-        mean /=3;
-        mean = (mean<0?0:mean);
-        mean = (mean>255?255:mean);
-        unsigned char ucmean = mean;
-        *dstoff++ = ucmean;
-        *dstoff++ = ucmean;
-        *dstoff++ = ucmean;
-      }
-    }
+	try
+	{
+	  fGray->clear();
+	  ColorToGray(theCVFrame, fGray);
+	  fHarris->clear();
+	  cornerHarris(fGray, fHarris, 0.04);
+          FrameAbs(fHarris);
+          fGray2->clear();
+	  FrameFloatToUChar3Chan(fHarris, fGray2);
+          int c = 0;
+	  vCornerX.clear();
+          vCornerY.clear();
+	  for(int j=0; j<fGray2->height; j++)
+           for(int i=0; i<fGray2->width; i++) 
+#define HARRIS_THRESHOLD (150)
+            if((fGray2->ucbuf[3*(j*fGray2->width+i)]>HARRIS_THRESHOLD)||(fGray2->ucbuf[3*(j*fGray2->width+i)+1]>HARRIS_THRESHOLD)||(fGray2->ucbuf[3*(j*fGray2->width+i)+2]>HARRIS_THRESHOLD))
+            {
+              if(c<MAX_HARRIS_CORNERS)
+              {
+               vCornerX[c] = i;
+               vCornerY[c] = j;
+              }
+             c++;
+            }
+	  for(int i=0; i<(c<MAX_HARRIS_CORNERS?c:MAX_HARRIS_CORNERS); i++)
+          {
+             FrameUC3PutRedCross(vCornerX[i], vCornerY[i], fGray2);
+          }
+          //cout << "Num-Harris-corners=" << c << endl; fflush(stdout);
+	}
+	catch(...)
+	{
+		cout << "EXCEPTION IN THREAD ROUTINE!" << endl;
+		fflush(stdout);
+	}
 }
-#endif
 
 int main(int argc, char **argv)
 {
     cout << "SimpleV4L2 - tibaldi.amos@gmail.com - https://github.com/Amos-Tibaldi/SimpleV4L2" << endl;
-    cout << "Try to comment out the line #define ALSO_GRAY_WINDOW" << endl;
-    RgbBuf = (unsigned char*)memalign(16, XPIX*YPIX*3);
-#ifdef ALSO_GRAY_WINDOW
-    GrayBuf = (unsigned char*)memalign(16, XPIX*YPIX*3);
-#endif
 
     SXRWindow::Init();
 
     SXRWindow w(XPIX, YPIX, "vid");
-#ifdef ALSO_GRAY_WINDOW
-    SXRWindow wg(XPIX, YPIX, "gray");
-#endif
+    SXRWindow wg(XPIX, YPIX, "Harris");
+
+    theCVFrame = new FrameUC(XPIX, YPIX, 0, 3);
+    fHarris = new FrameF(XPIX, YPIX, 0, 1);
+    fGray = new FrameUC(XPIX, YPIX, 0, 1);
+    fGray2 = new FrameUC(XPIX, YPIX, 0, 3);
 
     CSimpleV4L2 v(XPIX, YPIX, 0);
 
@@ -139,7 +158,7 @@ int main(int argc, char **argv)
 
     for(; !SXRWindow::ShouldExit(); )
     {
-        if(v.NextFrame(RgbBuf))
+        if(v.NextFrame(theCVFrame->ucbuf))
         {
 		gettimeofday(&tv, &tz);
 		if(lastsec==-1)
@@ -157,13 +176,14 @@ int main(int argc, char **argv)
 		cout << ((frame_counter%10==0)?"x":".");
 		fflush(stdout);
 		
-#ifdef ALSO_GRAY_WINDOW
+
 		thread threadObj(thread_routine_for_gray_buffer);
 		threadObj.join();
 
-		wg.UpdateWindowOnScreen(GrayBuf);
-#endif
-		w.UpdateWindowOnScreen(RgbBuf);
+		wg.UpdateWindowOnScreen(fGray2->ucbuf);
+
+
+		w.UpdateWindowOnScreen(theCVFrame->ucbuf);
        }
 
        SXRWindow::ShortManagementRoutine();
@@ -173,12 +193,18 @@ int main(int argc, char **argv)
 
     v.Reset();
 
-    free(RgbBuf);
-#ifdef ALSO_GRAY_WINDOW
-    free(GrayBuf);
-#endif
+    delete theCVFrame;
+    theCVFrame = 0;
+    delete fHarris;
+    fHarris = 0;
+    delete fGray;
+    fGray = 0;
+    delete fGray2;
+    fGray2 = 0;
 
     return 0;
 }
+
+
 
 

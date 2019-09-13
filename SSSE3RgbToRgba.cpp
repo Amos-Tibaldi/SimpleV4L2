@@ -132,8 +132,8 @@ again_HISPEED_RGBTORGBA:
         }
 
 end_HISPEED_RGBTORGBA:
-
-        _mm_store_si128(pdst, Xmm_C);
+	int a = 1;
+       // _mm_store_si128(pdst, Xmm_C);
 
     }
 

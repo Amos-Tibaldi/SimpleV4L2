@@ -33,7 +33,7 @@
 #-----------------------------------------------------------------------
 
 project(simplev4l2)
-set(CMAKE_CXX_FLAGS "-std=c++11 -msse3 -mssse3 -g")
-add_executable(simplev4l2 main.cpp SimpleV4L2.cpp SSSE3RgbToRgba.cpp SXRWindow.cpp)
+set(CMAKE_CXX_FLAGS "-std=c++11 -msse3 -mssse3 -fpermissive -g")
+add_executable(simplev4l2 main.cpp SimpleV4L2.cpp SSSE3RgbToRgba.cpp SXRWindow.cpp CV.cpp)
 
 target_link_libraries(simplev4l2 pthread v4l2 X11 Xrender)
