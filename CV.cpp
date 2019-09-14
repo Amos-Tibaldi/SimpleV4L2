@@ -131,8 +131,8 @@ void calcHarris(FrameF * _cov , FrameF * _dst, double k)
     int i, j;
     for( i = 0; i < _cov->height; i++ )
     {
-        const float* cov = &(_cov->fbuf[3*i]);
-        float* dst = &(_dst->fbuf[i]);
+        const float* cov = &(_cov->fbuf[3*i*_cov->width]);
+        float* dst = &(_dst->fbuf[i*_dst->width]);
         for(j = 0 ; j < _cov->width; j++ )
         {
             float a = cov[j*3];
@@ -197,9 +197,9 @@ void cornerHarris(FrameUC * src, FrameF * eigenv, double k)
     int i, j;
     for( i = 0; i < src->height; i++ )
     {
-        float* cov_data = &(cov->fbuf[3*i]);
-        const float* dxdata = &(Dx->fbuf[i]);
-        const float* dydata = &(Dy->fbuf[i]);
+        float* cov_data = &(cov->fbuf[3*i*cov->width]);
+        const float* dxdata = &(Dx->fbuf[i*Dx->width]);
+        const float* dydata = &(Dy->fbuf[i*Dy->width]);
         for(j = 0; j < src->width; j++ )
         {
             float dx = dxdata[j];

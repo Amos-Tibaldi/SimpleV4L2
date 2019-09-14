@@ -106,9 +106,9 @@ void thread_routine_for_gray_buffer()
           int c = 0;
 	  vCornerX.clear();
           vCornerY.clear();
-	  for(int j=0; j<fGray2->height; j++)
-           for(int i=0; i<fGray2->width; i++) 
-#define HARRIS_THRESHOLD (150)
+	  for(int j=10; j<fGray2->height-10; j++)
+           for(int i=10; i<fGray2->width-10; i++) 
+#define HARRIS_THRESHOLD (200)
             if((fGray2->ucbuf[3*(j*fGray2->width+i)]>HARRIS_THRESHOLD)||(fGray2->ucbuf[3*(j*fGray2->width+i)+1]>HARRIS_THRESHOLD)||(fGray2->ucbuf[3*(j*fGray2->width+i)+2]>HARRIS_THRESHOLD))
             {
               if(c<MAX_HARRIS_CORNERS)
